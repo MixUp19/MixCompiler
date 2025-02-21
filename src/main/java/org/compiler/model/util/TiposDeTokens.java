@@ -50,6 +50,14 @@ public enum TiposDeTokens {
         }
         return "No identificado";
     }
+    public static TiposDeTokens getEnumByString(String type){
+        for (TiposDeTokens tipo : TiposDeTokens.values()){
+            if (tipo.toString().equals(type)){
+                return tipo;
+            }
+        }
+        return ERROR;
+    }
     @Override
     public String toString(){return tipo;}
 }

@@ -1,33 +1,42 @@
 package org.compiler.model;
 
+import org.compiler.model.util.ExpressionNode;
 import org.compiler.model.util.Pair;
 import org.compiler.model.util.TiposDeTokens;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Vector;
 
 public class Parser {
     private final ArrayList<Pair<TiposDeTokens,String,Integer>> tokens;
-    private String mensaje;
+    private final HashMap<String, ArrayList<String>> identificadores = new HashMap<>();
+    private final HashMap<Vector<String>, ExpressionNode> expressionTrees = new HashMap<>();
+    private boolean semanticError;
+    private String semanticErrorMessage;
+    private String message;
     private boolean error;
     private int pos;
 
     public Parser(ArrayList<Pair<TiposDeTokens,String,Integer>> codigo){
         this.tokens = codigo;
         pos = 0;
+        semanticError = false;
         try {
             declaracion();
             consume(TiposDeTokens.FIN.getTipoInt());
-            mensaje = "todo bien";
+            message = "todo bien";
             error = false;
         }catch (Exception e){
-            mensaje = e.getMessage();
+            message = e.getMessage();
             error = true;
         }
 
     }
     private void consume(int tipoToken) throws Exception{
         if (tokens.get(pos).getFirst().getTipoInt() != tipoToken){
-            throw new Exception("Error, se esperaba " + TiposDeTokens.getEnumByInt(tipoToken)+" se encontró "+ tokens.get(pos).getSecond()+" en la posición "+pos);
+            throw new Exception("Error, se esperaba " + TiposDeTokens.getEnumByInt(tipoToken)+"se encontró <br>"+ tokens.get(pos).getSecond()+" en la linea "+tokens.get(pos).getThird());
         }
         pos++;
     }
@@ -74,95 +83,160 @@ public class Parser {
         declaracion();
     }
     private void definirID() throws Exception{
+        ArrayList<String> tipo = new ArrayList<>(2);
+        tipo.addAll(List.of(new String[]{tokens.get(pos).getFirst().toString(), tokens.get(pos).getThird().toString()}));
         consume(tokens.get(pos).getFirst().getTipoInt());
+        identificadores.put(tokens.get(pos).getSecond(), tipo);
         consume(TiposDeTokens.ID.getTipoInt());
         consume(TiposDeTokens.PC.getTipoInt());
     }
 
     private void asignarValor() throws Exception{
+        validateAssignation();
+        String variable = tokens.get(pos).getSecond();
+        int linea = tokens.get(pos).getThird();
         consume(tokens.get(pos).getFirst().getTipoInt());
         consume(TiposDeTokens.ASIGNACION.getTipoInt());
-        expresion();
+        ExpressionNode exprTree = buildTreeExpression();
+        Vector<String> key = new Vector<>(List.of(variable, String.valueOf(linea)));
+        expressionTrees.put(key, exprTree);
         consume(TiposDeTokens.PC.getTipoInt());
     }
-    private void expresion() throws Exception{
-        switch (tokens.get(pos).getFirst()){
+    private ExpressionNode buildTreeExpression() throws Exception {
+        return parseRelational();
+    }
+
+    private ExpressionNode parseRelational() throws Exception {
+        ExpressionNode left = parseExpression();
+        while (pos < tokens.size() && (tokens.get(pos).getFirst() == TiposDeTokens.MAYOR || tokens.get(pos).getFirst() == TiposDeTokens.MENOR ||
+                tokens.get(pos).getFirst() == TiposDeTokens.MAYOR_IGUAL || tokens.get(pos).getFirst() == TiposDeTokens.MENOR_IGUAL ||
+                tokens.get(pos).getFirst() == TiposDeTokens.IGUAL)) {
+            String operador = tokens.get(pos).getSecond();
+            consume(tokens.get(pos).getFirst().getTipoInt());
+            ExpressionNode right = parseExpression();
+            left = new ExpressionNode(operador, left, right);
+        }
+        return left;
+    }
+
+    private ExpressionNode parseExpression() throws Exception {
+        ExpressionNode left = parseTerm();
+        while (pos < tokens.size() && (tokens.get(pos).getFirst() == TiposDeTokens.SUMA || tokens.get(pos).getFirst() == TiposDeTokens.RESTA)) {
+            String operador = tokens.get(pos).getSecond();
+            consume(tokens.get(pos).getFirst().getTipoInt());
+            ExpressionNode right = parseTerm();
+            left = new ExpressionNode(operador, left, right);
+        }
+        return left;
+    }
+
+    private ExpressionNode parseTerm() throws Exception {
+        ExpressionNode left = parseFactor();
+        while (pos < tokens.size() && (tokens.get(pos).getFirst() == TiposDeTokens.MULTIPLICACION || tokens.get(pos).getFirst() == TiposDeTokens.DIVISION)) {
+            String operador = tokens.get(pos).getSecond();
+            consume(tokens.get(pos).getFirst().getTipoInt());
+            ExpressionNode right = parseFactor();
+            left = new ExpressionNode(operador, left, right);
+        }
+        return left;
+    }
+
+    private ExpressionNode parseFactor() throws Exception {
+        switch (tokens.get(pos).getFirst()) {
             case ID:
+                String id = tokens.get(pos).getSecond();
                 consume(TiposDeTokens.ID.getTipoInt());
-                break;
+                return new ExpressionNode(id, null, null);
             case NUMERO:
+                String numero = tokens.get(pos).getSecond();
                 consume(TiposDeTokens.NUMERO.getTipoInt());
-                break;
+                return new ExpressionNode(numero, null, null);
             case N_FRACCION:
+                String fraccion = tokens.get(pos).getSecond();
                 consume(TiposDeTokens.N_FRACCION.getTipoInt());
-                break;
+                return new ExpressionNode(fraccion, null, null);
             case CADENA:
+                String cadena = tokens.get(pos).getSecond();
                 consume(TiposDeTokens.CADENA.getTipoInt());
-                break;
+                return new ExpressionNode(cadena, null, null);
             case TRUE:
                 consume(TiposDeTokens.TRUE.getTipoInt());
-                break;
+                return new ExpressionNode("true", null, null);
             case FALSE:
                 consume(TiposDeTokens.FALSE.getTipoInt());
-                break;
-            case FIN:
-                return;
+                return new ExpressionNode("false", null, null);
             default:
-                throw new Exception("Error, se desconoce el token "+ tokens.get(pos).getSecond()+" en una expresión");
-        }
-        if (pos < tokens.size() && esOperador(tokens.get(pos).getFirst())){
-            int operador = tokens.get(pos).getFirst().getTipoInt();
-            consume(operador);
-            expresion();
+                throw new Exception("Error, se desconoce el token " + tokens.get(pos).getSecond() + " en una expresión");
         }
     }
-    private void read() throws Exception{
+    private void read() throws Exception {
         consume(TiposDeTokens.READ.getTipoInt());
         consume(TiposDeTokens.APERTO_PAR.getTipoInt());
-        expresion();
+        ExpressionNode exprTree = buildTreeExpression();
+        Vector<String> key = new Vector<>(List.of("read", String.valueOf(tokens.get(pos).getThird())));
+        expressionTrees.put(key, exprTree);
         consume(TiposDeTokens.CERRADO_PAR.getTipoInt());
         consume(TiposDeTokens.PC.getTipoInt());
     }
-    private void print() throws Exception{
+
+    private void print() throws Exception {
         consume(TiposDeTokens.PRINT.getTipoInt());
         consume(TiposDeTokens.APERTO_PAR.getTipoInt());
-        expresion();
+        ExpressionNode exprTree = buildTreeExpression();
+        Vector<String> key = new Vector<>(List.of("print", String.valueOf(tokens.get(pos).getThird())));
+        expressionTrees.put(key, exprTree);
         consume(TiposDeTokens.CERRADO_PAR.getTipoInt());
         consume(TiposDeTokens.PC.getTipoInt());
     }
-    private void println() throws Exception{
+
+    private void println() throws Exception {
         consume(TiposDeTokens.PRINTLN.getTipoInt());
         consume(TiposDeTokens.APERTO_PAR.getTipoInt());
-        expresion();
+        ExpressionNode exprTree = buildTreeExpression();
+        Vector<String> key = new Vector<>(List.of("println", String.valueOf(tokens.get(pos).getThird())));
+        expressionTrees.put(key, exprTree);
         consume(TiposDeTokens.CERRADO_PAR.getTipoInt());
         consume(TiposDeTokens.PC.getTipoInt());
     }
-    private void whileMetodo() throws Exception{
+
+    private void whileMetodo() throws Exception {
         consume(TiposDeTokens.WHILE.getTipoInt());
         consume(TiposDeTokens.APERTO_PAR.getTipoInt());
-        expresion();
+        ExpressionNode exprTree = buildTreeExpression();
+        Vector<String> key = new Vector<>(List.of("while", String.valueOf(tokens.get(pos).getThird())));
+        expressionTrees.put(key, exprTree);
         consume(TiposDeTokens.CERRADO_PAR.getTipoInt());
         consume(TiposDeTokens.APERTO_LLA.getTipoInt());
         declaracion();
         consume(TiposDeTokens.CERRADO_LLA.getTipoInt());
     }
-    private void ifMetodo() throws Exception{
+
+    private void ifMetodo() throws Exception {
         consume(TiposDeTokens.IF.getTipoInt());
         consume(TiposDeTokens.APERTO_PAR.getTipoInt());
-        expresion();
+        ExpressionNode exprTree = buildTreeExpression();
+        Vector<String> key = new Vector<>(List.of("if", String.valueOf(tokens.get(pos).getThird())));
+        expressionTrees.put(key, exprTree);
         consume(TiposDeTokens.CERRADO_PAR.getTipoInt());
         consume(TiposDeTokens.APERTO_LLA.getTipoInt());
         declaracion();
         consume(TiposDeTokens.CERRADO_LLA.getTipoInt());
-        if(verificar(TiposDeTokens.ELSE.getTipoInt())){
+        if (verificar(TiposDeTokens.ELSE.getTipoInt())) {
             consume(TiposDeTokens.ELSE.getTipoInt());
             consume(TiposDeTokens.APERTO_LLA.getTipoInt());
             declaracion();
             consume(TiposDeTokens.CERRADO_LLA.getTipoInt());
         }
     }
-    public String getMensaje() {
-        return mensaje;
+
+    private void validateAssignation(){
+        if (!semanticError &&!identificadores.containsKey(tokens.get(pos).getSecond())){
+            semanticErrorMessage = "Error, la variable "+tokens.get(pos).getSecond()+" en la linea "+ tokens.get(pos).getThird()+" no ha sido declarada";
+            semanticError = true;
+        }
+    }
+    public String getMessage() {
+        return message;
     }
     public boolean isError() {return error;}
 

@@ -25,7 +25,7 @@ public class Controller implements ActionListener{
             lexer = new Lexer(pantalla.getText());
             parser = new Parser(lexer.getTokens());
             pantalla.colocarTokens(lexer.getTablaTokens());
-            pantalla.setLog(parser.getMensaje(),parser.isError());
+            pantalla.setLog(parser.getMessage(),parser.isError());
             return;
         }
         if (e.getSource() == pantalla.getFileMenu()){
