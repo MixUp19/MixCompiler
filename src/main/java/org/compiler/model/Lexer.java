@@ -51,10 +51,10 @@ public class Lexer {
         this.input = input;
         this.posicion = 0;
         this.linea = 1;
-        scan();
-        for (Pair<TiposDeTokens,String,Integer> pareja : tokens){
-            System.out.println(pareja);
+        if (input.isBlank()){
+            tokens.add(new Pair<>(TiposDeTokens.ERROR,"No se ingreso ningun texto",linea));
         }
+        scan();
     }
 
     public void scan() {
@@ -147,14 +147,14 @@ public class Lexer {
                 int a;
                 a = 5;
                 string b;
-                b = "h0l4?"
+                b = "h0l4?";
                 if (c){
-                print(b)
+                print(b);
                 } else {
                 if (a==5){
-                print(a)
+                print(a);
                 }
-                @d
+                }
                 int z;
                 read(z);
                 while (z <=5){

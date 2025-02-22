@@ -23,36 +23,36 @@ public class Parser {
         this.tokens = codigo;
         pos = 0;
         semanticError = false;
+        parse();
+    }
+    public void parse() {
         try {
             declaracion();
             consume(TiposDeTokens.FIN.getTipoInt());
             message = "todo bien";
             error = false;
-        }catch (Exception e){
+        } catch (Exception e) {
             message = e.getMessage();
             error = true;
         }
-
     }
     private void consume(int tipoToken) throws Exception{
         if (tokens.get(pos).getFirst().getTipoInt() != tipoToken){
-            throw new Exception("Error, se esperaba " + TiposDeTokens.getEnumByInt(tipoToken)+"se encontró <br>"+ tokens.get(pos).getSecond()+" en la linea "+tokens.get(pos).getThird());
+            throw new Exception("Error, se esperaba " + TiposDeTokens.getEnumByInt(tipoToken)+"se encontró "+ tokens.get(pos).getSecond()+" en la linea "+tokens.get(pos).getThird());
         }
         pos++;
     }
     private boolean verificar(int tipoToken) {
         return pos < tokens.size() && tokens.get(pos).getFirst().getTipoInt() == tipoToken;
     }
-    private boolean esOperador(TiposDeTokens token) {
-        return token == TiposDeTokens.SUMA ||
-                token == TiposDeTokens.RESTA ||
-                token == TiposDeTokens.MULTIPLICACION ||
-                token == TiposDeTokens.DIVISION ||
-                token == TiposDeTokens.MAYOR ||
-                token == TiposDeTokens.MENOR ||
-                token == TiposDeTokens.MAYOR_IGUAL ||
-                token == TiposDeTokens.MENOR_IGUAL ||
-                token == TiposDeTokens.IGUAL;
+    private boolean isHighOperator(TiposDeTokens token){
+        return token == TiposDeTokens.DIVISION || token == TiposDeTokens.MULTIPLICACION;
+    }
+    private boolean isLowOperator(TiposDeTokens token){
+        return token == TiposDeTokens.SUMA || token == TiposDeTokens.RESTA;
+    }
+    private boolean isRelationalOperator(TiposDeTokens token) {
+        return token == TiposDeTokens.MAYOR || token == TiposDeTokens.MENOR || token == TiposDeTokens.MAYOR_IGUAL || token == TiposDeTokens.MENOR_IGUAL || token == TiposDeTokens.IGUAL;
     }
     private void declaracion()throws Exception{
         switch (tokens.get(pos).getFirst()) {
@@ -84,7 +84,7 @@ public class Parser {
     }
     private void definirID() throws Exception{
         ArrayList<String> tipo = new ArrayList<>(2);
-        tipo.addAll(List.of(new String[]{tokens.get(pos).getFirst().toString(), tokens.get(pos).getThird().toString()}));
+        tipo.addAll(List.of(tokens.get(pos).getFirst().toString(), tokens.get(pos).getThird().toString()));
         consume(tokens.get(pos).getFirst().getTipoInt());
         identificadores.put(tokens.get(pos).getSecond(), tipo);
         consume(TiposDeTokens.ID.getTipoInt());
@@ -108,35 +108,36 @@ public class Parser {
 
     private ExpressionNode parseRelational() throws Exception {
         ExpressionNode left = parseExpression();
-        while (pos < tokens.size() && (tokens.get(pos).getFirst() == TiposDeTokens.MAYOR || tokens.get(pos).getFirst() == TiposDeTokens.MENOR ||
-                tokens.get(pos).getFirst() == TiposDeTokens.MAYOR_IGUAL || tokens.get(pos).getFirst() == TiposDeTokens.MENOR_IGUAL ||
-                tokens.get(pos).getFirst() == TiposDeTokens.IGUAL)) {
+        while (pos < tokens.size() && isRelationalOperator(tokens.get(pos).getFirst())) {
             String operador = tokens.get(pos).getSecond();
+            TiposDeTokens tipo = tokens.get(pos).getFirst();
             consume(tokens.get(pos).getFirst().getTipoInt());
             ExpressionNode right = parseExpression();
-            left = new ExpressionNode(operador, left, right);
+            left = new ExpressionNode(operador, left, right, tipo);
         }
         return left;
     }
 
     private ExpressionNode parseExpression() throws Exception {
         ExpressionNode left = parseTerm();
-        while (pos < tokens.size() && (tokens.get(pos).getFirst() == TiposDeTokens.SUMA || tokens.get(pos).getFirst() == TiposDeTokens.RESTA)) {
+        while (pos < tokens.size() && (isLowOperator(tokens.get(pos).getFirst()))) {
             String operador = tokens.get(pos).getSecond();
+            TiposDeTokens tipo = tokens.get(pos).getFirst();
             consume(tokens.get(pos).getFirst().getTipoInt());
             ExpressionNode right = parseTerm();
-            left = new ExpressionNode(operador, left, right);
+            left = new ExpressionNode(operador, left, right, tipo);
         }
         return left;
     }
 
     private ExpressionNode parseTerm() throws Exception {
         ExpressionNode left = parseFactor();
-        while (pos < tokens.size() && (tokens.get(pos).getFirst() == TiposDeTokens.MULTIPLICACION || tokens.get(pos).getFirst() == TiposDeTokens.DIVISION)) {
+        while (pos < tokens.size() && (isHighOperator(tokens.get(pos).getFirst()))) {
             String operador = tokens.get(pos).getSecond();
+            TiposDeTokens tipo = tokens.get(pos).getFirst();
             consume(tokens.get(pos).getFirst().getTipoInt());
             ExpressionNode right = parseFactor();
-            left = new ExpressionNode(operador, left, right);
+            left = new ExpressionNode(operador, left, right, tipo);
         }
         return left;
     }
@@ -146,25 +147,25 @@ public class Parser {
             case ID:
                 String id = tokens.get(pos).getSecond();
                 consume(TiposDeTokens.ID.getTipoInt());
-                return new ExpressionNode(id, null, null);
+                return new ExpressionNode(id, null, null, TiposDeTokens.ID);
             case NUMERO:
                 String numero = tokens.get(pos).getSecond();
                 consume(TiposDeTokens.NUMERO.getTipoInt());
-                return new ExpressionNode(numero, null, null);
+                return new ExpressionNode(numero, null, null, TiposDeTokens.NUMERO);
             case N_FRACCION:
                 String fraccion = tokens.get(pos).getSecond();
                 consume(TiposDeTokens.N_FRACCION.getTipoInt());
-                return new ExpressionNode(fraccion, null, null);
+                return new ExpressionNode(fraccion, null, null, TiposDeTokens.N_FRACCION);
             case CADENA:
                 String cadena = tokens.get(pos).getSecond();
                 consume(TiposDeTokens.CADENA.getTipoInt());
-                return new ExpressionNode(cadena, null, null);
+                return new ExpressionNode(cadena, null, null, TiposDeTokens.CADENA);
             case TRUE:
                 consume(TiposDeTokens.TRUE.getTipoInt());
-                return new ExpressionNode("true", null, null);
+                return new ExpressionNode("true", null, null, TiposDeTokens.TRUE);
             case FALSE:
                 consume(TiposDeTokens.FALSE.getTipoInt());
-                return new ExpressionNode("false", null, null);
+                return new ExpressionNode("false", null, null, TiposDeTokens.FALSE);
             default:
                 throw new Exception("Error, se desconoce el token " + tokens.get(pos).getSecond() + " en una expresión");
         }
@@ -203,7 +204,7 @@ public class Parser {
         consume(TiposDeTokens.WHILE.getTipoInt());
         consume(TiposDeTokens.APERTO_PAR.getTipoInt());
         ExpressionNode exprTree = buildTreeExpression();
-        Vector<String> key = new Vector<>(List.of("while", String.valueOf(tokens.get(pos).getThird())));
+        Vector<String> key = new Vector<>(List.of("WHILE", String.valueOf(tokens.get(pos).getThird())));
         expressionTrees.put(key, exprTree);
         consume(TiposDeTokens.CERRADO_PAR.getTipoInt());
         consume(TiposDeTokens.APERTO_LLA.getTipoInt());
@@ -215,7 +216,7 @@ public class Parser {
         consume(TiposDeTokens.IF.getTipoInt());
         consume(TiposDeTokens.APERTO_PAR.getTipoInt());
         ExpressionNode exprTree = buildTreeExpression();
-        Vector<String> key = new Vector<>(List.of("if", String.valueOf(tokens.get(pos).getThird())));
+        Vector<String> key = new Vector<>(List.of("IF", String.valueOf(tokens.get(pos).getThird())));
         expressionTrees.put(key, exprTree);
         consume(TiposDeTokens.CERRADO_PAR.getTipoInt());
         consume(TiposDeTokens.APERTO_LLA.getTipoInt());
@@ -239,5 +240,9 @@ public class Parser {
         return message;
     }
     public boolean isError() {return error;}
+    public boolean isSemanticError() {return semanticError;}
+    public String getSemanticErrorMessage() {return semanticErrorMessage;}
+    public HashMap<String, ArrayList<String>> getIdentificadores() {return identificadores;}
+    public HashMap<Vector<String>, ExpressionNode> getExpressionTrees() {return expressionTrees;}
 
 }
