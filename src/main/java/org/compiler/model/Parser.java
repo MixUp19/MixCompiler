@@ -86,6 +86,13 @@ public class Parser {
         ArrayList<String> tipo = new ArrayList<>(2);
         tipo.addAll(List.of(tokens.get(pos).getFirst().toString(), tokens.get(pos).getThird().toString()));
         consume(tokens.get(pos).getFirst().getTipoInt());
+        if(identificadores.containsKey(tokens.get(pos).getSecond())){
+            semanticErrorMessage ="Error, la variable "+tokens.get(pos).getSecond()+" en la linea "+ tokens.get(pos).getThird()+" ya ha sido declarada";
+            semanticError = true;
+            consume(TiposDeTokens.ID.getTipoInt());
+            consume(TiposDeTokens.PC.getTipoInt());
+            return;
+        }
         identificadores.put(tokens.get(pos).getSecond(), tipo);
         consume(TiposDeTokens.ID.getTipoInt());
         consume(TiposDeTokens.PC.getTipoInt());
