@@ -15,9 +15,11 @@ public class Pantalla extends JFrame {
     private JButton scanButton;
     private JButton parseButton;
     private JButton semanticButton;
+    private JButton ciButton;
     private JMenuItem fileMenu;
     private JLabel parserMessage;
     private JLabel semanticMessage;
+    private JTextArea intermediateCode;
 
     public Pantalla() {
         setTitle("Analizador Léxico");
@@ -49,9 +51,18 @@ public class Pantalla extends JFrame {
         JPanel mainPanel = new JPanel(new GridLayout());
         mainPanel.add(createTextAreaPanel());
         mainPanel.add(createDebugPanel());
+        mainPanel.add(createCodeIntermediatePanel());
         return mainPanel;
     }
-
+    private JPanel createCodeIntermediatePanel(){
+        JPanel ciPanel = new JPanel(new BorderLayout());
+        intermediateCode = new JTextArea();
+        intermediateCode.setFont(new Font("Courier New", Font.PLAIN, 20));
+        ciPanel.add(intermediateCode, BorderLayout.CENTER);
+        ciButton = new JButton("Codigo intermedio");
+        ciPanel.add(createButtonPanel(ciButton), BorderLayout.SOUTH);
+        return ciPanel;
+    }
     private JScrollPane createTextAreaPanel() {
         textArea = new JTextArea();
         textArea.setFont(new Font("Courier New", Font.PLAIN, 20));
@@ -132,6 +143,7 @@ public class Pantalla extends JFrame {
         scanButton.addActionListener(controller);
         parseButton.addActionListener(controller);
         semanticButton.addActionListener(controller);
+        ciButton.addActionListener(controller);
     }
 
     public void setLog(String log, boolean error, String type) {
@@ -181,4 +193,7 @@ public class Pantalla extends JFrame {
     public void setText(String text) {
         textArea.setText(text);
     }
+    public void setIntermediateCode(String text){ intermediateCode.setText(text);}
+
+    public JButton getCIbutton(){return ciButton;}
 }

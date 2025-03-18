@@ -1,9 +1,6 @@
 package org.compiler.controller;
 
-import org.compiler.model.LectorMix;
-import org.compiler.model.Lexer;
-import org.compiler.model.Parser;
-import org.compiler.model.Semantic;
+import org.compiler.model.*;
 import org.compiler.view.Pantalla;
 
 import java.awt.event.ActionEvent;
@@ -15,6 +12,7 @@ public class Controller implements ActionListener{
     Lexer lexer;
     Parser parser;
     Semantic semantic;
+    CodigoIntermedio ci;
     public Controller(
             Pantalla pantalla
     ){
@@ -44,7 +42,15 @@ public class Controller implements ActionListener{
                 return;
             }
             pantalla.setLog(semantic.getMessage(), semantic.isError(), "semantic");
+            ci = new CodigoIntermedio(lexer.getTokens(), parser.getIdentificadores(), parser.getExpressionTrees());
             return;
+        }
+        if (e.getSource() == pantalla.getCIbutton()){
+            if (ci == null){
+                pantalla.setIntermediateCode("No se ha realizado el análisis semantic");
+                return;
+            }
+            pantalla.setIntermediateCode(ci.getCodigoIntermedio());
         }
         if (e.getSource() == pantalla.getFileMenu()){
             String path = pantalla.fileSelection();
@@ -52,6 +58,7 @@ public class Controller implements ActionListener{
             LectorMix.leerArchivoMix(path);
             pantalla.setText(LectorMix.leerArchivoMix(path));
         }
+
     }
 
 }
