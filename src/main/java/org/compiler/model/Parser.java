@@ -11,6 +11,7 @@ import java.util.Vector;
 
 public class Parser {
     private final ArrayList<Pair<TiposDeTokens,String,Integer>> tokens;
+    private final ArrayList<Pair<String,Integer,Integer>> estruturasDeFlujo;
     private final HashMap<String, ArrayList<String>> identificadores = new HashMap<>();
     private final HashMap<Vector<String>, ExpressionNode> expressionTrees = new HashMap<>();
     private boolean semanticError;
@@ -20,6 +21,7 @@ public class Parser {
     private int pos;
 
     public Parser(ArrayList<Pair<TiposDeTokens,String,Integer>> codigo){
+        this.estruturasDeFlujo = new ArrayList<>();
         this.tokens = codigo;
         pos = 0;
         semanticError = false;
@@ -213,9 +215,12 @@ public class Parser {
         ExpressionNode exprTree = buildTreeExpression();
         Vector<String> key = new Vector<>(List.of("WHILE", String.valueOf(tokens.get(pos).getThird())));
         expressionTrees.put(key, exprTree);
+        Pair<String, Integer, Integer> pair = new Pair<>("WHILE", tokens.get(pos).getThird(), 0);
         consume(TiposDeTokens.CERRADO_PAR.getTipoInt());
         consume(TiposDeTokens.APERTO_LLA.getTipoInt());
         declaracion();
+        pair.setThird(tokens.get(pos).getThird());
+        estruturasDeFlujo.add(pair);
         consume(TiposDeTokens.CERRADO_LLA.getTipoInt());
     }
 
@@ -224,15 +229,21 @@ public class Parser {
         consume(TiposDeTokens.APERTO_PAR.getTipoInt());
         ExpressionNode exprTree = buildTreeExpression();
         Vector<String> key = new Vector<>(List.of("IF", String.valueOf(tokens.get(pos).getThird())));
+        Pair<String, Integer, Integer> pair = new Pair<>("IF", tokens.get(pos).getThird(), 0);
+        estruturasDeFlujo.add(pair);
         expressionTrees.put(key, exprTree);
         consume(TiposDeTokens.CERRADO_PAR.getTipoInt());
         consume(TiposDeTokens.APERTO_LLA.getTipoInt());
         declaracion();
+        pair.setThird(tokens.get(pos).getThird());
         consume(TiposDeTokens.CERRADO_LLA.getTipoInt());
         if (verificar(TiposDeTokens.ELSE.getTipoInt())) {
+            pair = new Pair<>("ELSE", tokens.get(pos).getThird(), 0);
+            estruturasDeFlujo.add(pair);
             consume(TiposDeTokens.ELSE.getTipoInt());
             consume(TiposDeTokens.APERTO_LLA.getTipoInt());
             declaracion();
+            pair.setThird(tokens.get(pos).getThird());
             consume(TiposDeTokens.CERRADO_LLA.getTipoInt());
         }
     }
@@ -251,5 +262,6 @@ public class Parser {
     public String getSemanticErrorMessage() {return semanticErrorMessage;}
     public HashMap<String, ArrayList<String>> getIdentificadores() {return identificadores;}
     public HashMap<Vector<String>, ExpressionNode> getExpressionTrees() {return expressionTrees;}
+    public ArrayList<Pair<String, Integer, Integer>> getEstruturasDeFlujo() {return estruturasDeFlujo;}
 
 }

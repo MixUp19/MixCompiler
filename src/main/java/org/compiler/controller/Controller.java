@@ -42,7 +42,10 @@ public class Controller implements ActionListener{
                 return;
             }
             pantalla.setLog(semantic.getMessage(), semantic.isError(), "semantic");
-            ci = new CodigoIntermedio(lexer.getTokens(), parser.getIdentificadores(), parser.getExpressionTrees());
+            ci = new CodigoIntermedio(lexer.getTokens(),
+                    parser.getIdentificadores(),
+                    parser.getExpressionTrees(),
+                    parser.getEstruturasDeFlujo());
             return;
         }
         if (e.getSource() == pantalla.getCIbutton()){
