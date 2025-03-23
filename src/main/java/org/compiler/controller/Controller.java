@@ -61,7 +61,9 @@ public class Controller implements ActionListener{
             LectorMix.leerArchivoMix(path);
             pantalla.setText(LectorMix.leerArchivoMix(path));
         }
-
+        if (e.getSource() == pantalla.getRunButton()){
+            LectorMix.runIntermediateCode(pantalla.getIntermediateCode());
+        }
     }
 
 }

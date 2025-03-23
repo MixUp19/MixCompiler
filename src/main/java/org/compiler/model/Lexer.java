@@ -1,6 +1,6 @@
 package org.compiler.model;
 
-import org.compiler.model.util.Pair;
+import org.compiler.model.util.Token;
 import org.compiler.model.util.TiposDeTokens;
 
 import java.util.*;
@@ -12,7 +12,7 @@ public class Lexer {
     private int posicion;
     private int linea;
     private final Map<String, TiposDeTokens> palabrasReservadasMap = new HashMap<>();
-    private final ArrayList<Pair<TiposDeTokens,String,Integer>> tokens = new ArrayList<>();
+    private final ArrayList<Token> tokens = new ArrayList<>();
 
     private final Pattern patternID = Pattern.compile("[a-zA-Z]+");
     private final Pattern patternNUMERO = Pattern.compile("[0-9]+");
@@ -31,7 +31,7 @@ public class Lexer {
     private final Pattern patternMENOR_IGUAL = Pattern.compile("<=");
     private final Pattern patternASIGNACION = Pattern.compile("=");
     private final Pattern patternIGUAL = Pattern.compile("==");
-    private final Pattern  patternCADENA = Pattern.compile("\"([^\"\\\\]|\\\\.)*\"");
+    private final Pattern patternCADENA = Pattern.compile("\"([^\"\\\\]|\\\\.)*\"");
 
     public Lexer(String input){
         palabrasReservadasMap.put("if", TiposDeTokens.IF);
@@ -52,7 +52,7 @@ public class Lexer {
         this.posicion = 0;
         this.linea = 1;
         if (input.isBlank()){
-            tokens.add(new Pair<>(TiposDeTokens.ERROR,"No se ingreso ningun texto",linea));
+            tokens.add(new Token(TiposDeTokens.ERROR,"No se ingreso ningun texto",linea));
         }
         scan();
     }
@@ -71,7 +71,7 @@ public class Lexer {
             }
 
             if (input.charAt(posicion)==';') {
-                tokens.add(new Pair<>(TiposDeTokens.PC,";",linea));
+                tokens.add(new Token(TiposDeTokens.PC,";",linea));
                 posicion++;
                 continue;
             }
@@ -85,10 +85,10 @@ public class Lexer {
                 continue;
             }
             if (intentarToken(patternID, TiposDeTokens.ID)) {
-                String lexema = tokens.getLast().getSecond();
+                String lexema = tokens.get(tokens.size() - 1).getValor();
                 if (palabrasReservadasMap.containsKey(lexema)) {
                     TiposDeTokens tipoReservado = palabrasReservadasMap.get(lexema);
-                    tokens.set(tokens.size() - 1, new Pair<>(tipoReservado, lexema, linea));
+                    tokens.set(tokens.size() - 1, new Token(tipoReservado, lexema, linea));
                 }
                 continue;
             }
@@ -108,18 +108,17 @@ public class Lexer {
             if (intentarToken(patternMAYOR, TiposDeTokens.MAYOR)) continue;
             if (intentarToken(patternMENOR, TiposDeTokens.MENOR)) continue;
 
-            tokens.add(new Pair<>(TiposDeTokens.ERROR, input.charAt(posicion) + "", linea));
+            tokens.add(new Token(TiposDeTokens.ERROR, input.charAt(posicion) + "", linea));
             posicion++;
         }
     }
-
 
     private boolean intentarToken(Pattern pattern, TiposDeTokens tipoToken) {
         Matcher matcher = pattern.matcher(input);
         matcher.region(posicion, input.length());
         if (matcher.lookingAt()) {
             String token = matcher.group();
-            tokens.add(new Pair<>(tipoToken, token, linea));
+            tokens.add(new Token(tipoToken, token, linea));
             posicion += token.length();
             return true;
         }
@@ -128,18 +127,19 @@ public class Lexer {
 
     public Vector<Vector<String>> getTablaTokens(){
         Vector<Vector<String>> tablaTokens = new Vector<>();
-        for (Pair<TiposDeTokens,String,Integer> token : tokens){
+        for (Token token : tokens){
             Vector<String> aux = new Vector<>();
-            aux.add(token.getSecond());
-            aux.add(token.getFirst().toString());
+            aux.add(token.getValor());
+            aux.add(token.getTipo().toString());
             tablaTokens.add(aux);
         }
         return tablaTokens;
     }
 
-    public ArrayList<Pair<TiposDeTokens,String,Integer>> getTokens(){
+    public ArrayList<Token> getTokens(){
         return tokens;
     }
+
     public static void main(String[] args) {
         new Lexer("""
                 boolean c;
@@ -162,5 +162,5 @@ public class Lexer {
                 }
                 FIN""");
     }
-
 }
+

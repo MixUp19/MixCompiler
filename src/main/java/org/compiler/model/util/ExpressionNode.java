@@ -1,19 +1,18 @@
 package org.compiler.model.util;
 
 public class ExpressionNode {
-    private final String value;
-    private final TiposDeTokens tipo;
+    private final Token token;
     private final ExpressionNode left;
     private final ExpressionNode right;
 
-    public ExpressionNode(String value, ExpressionNode left, ExpressionNode right, TiposDeTokens tipo) {
-        this.value = value;
-        this.tipo = tipo;
+    public ExpressionNode(Token token, ExpressionNode left, ExpressionNode right) {
+        this.token = token;
         this.left = left;
         this.right = right;
     }
+
     public void preoder(){
-        System.out.print(value);
+        System.out.print(token.getValor());
         if(left != null){
             left.preoder();
         }
@@ -21,6 +20,7 @@ public class ExpressionNode {
             right.preoder();
         }
     }
+
     public void postorder(){
         if(left != null){
             left.postorder();
@@ -28,16 +28,11 @@ public class ExpressionNode {
         if(right != null){
             right.postorder();
         }
-        System.out.print(value);
+        System.out.print(token.getValor());
     }
 
-
-
-    public String getValue() {
-        return value;
-    }
-    public TiposDeTokens getTipo() {
-        return tipo;
+    public Token getToken() {
+        return token;
     }
 
     public ExpressionNode getLeft() {

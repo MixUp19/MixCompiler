@@ -20,6 +20,7 @@ public class Pantalla extends JFrame {
     private JLabel parserMessage;
     private JLabel semanticMessage;
     private JTextArea intermediateCode;
+    private JButton runButton;
 
     public Pantalla() {
         setTitle("Analizador Léxico");
@@ -58,9 +59,13 @@ public class Pantalla extends JFrame {
         JPanel ciPanel = new JPanel(new BorderLayout());
         intermediateCode = new JTextArea();
         intermediateCode.setFont(new Font("Courier New", Font.PLAIN, 20));
-        ciPanel.add(intermediateCode, BorderLayout.CENTER);
+        ciPanel.add(new JScrollPane(intermediateCode), BorderLayout.CENTER);
         ciButton = new JButton("Codigo intermedio");
-        ciPanel.add(createButtonPanel(ciButton), BorderLayout.SOUTH);
+        runButton = new JButton("Correr");
+        var panel = new JPanel(new GridLayout(1, 0));
+        panel.add(createButtonPanel(ciButton));
+        panel.add(createButtonPanel(runButton));
+        ciPanel.add(panel, BorderLayout.SOUTH);
         return ciPanel;
     }
     private JScrollPane createTextAreaPanel() {
@@ -122,6 +127,7 @@ public class Pantalla extends JFrame {
 
     public String fileSelection() {
         JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setCurrentDirectory(new File("/home/mixup/Documentos/Universidad/Len y Aut 2"));
         int selection = fileChooser.showOpenDialog(this);
         if (selection == JFileChooser.APPROVE_OPTION) {
             File file = fileChooser.getSelectedFile();
@@ -144,6 +150,7 @@ public class Pantalla extends JFrame {
         parseButton.addActionListener(controller);
         semanticButton.addActionListener(controller);
         ciButton.addActionListener(controller);
+        runButton.addActionListener(controller);
     }
 
     public void setLog(String log, boolean error, String type) {
@@ -194,6 +201,9 @@ public class Pantalla extends JFrame {
         textArea.setText(text);
     }
     public void setIntermediateCode(String text){ intermediateCode.setText(text);}
-
+    public String getIntermediateCode(){return intermediateCode.getText();}
     public JButton getCIbutton(){return ciButton;}
+    public JButton getRunButton() {
+        return runButton;
+    }
 }
