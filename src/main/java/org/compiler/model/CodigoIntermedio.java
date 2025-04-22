@@ -108,8 +108,8 @@ public class CodigoIntermedio {
             codigoIntermedioText.append("\tCALL\tprintf wrt ..plt\n");
         }
         if(isFloatID(idImprimir)){
-            codigoIntermedioText.append("\tMOV\tAX, [rel ").append(idImprimir).append("]").append("\n");
-            codigoIntermedioText.append("\tMOVSX\tESI, AX\n");
+            codigoIntermedioText.append("\tMOV\tEAX, [rel ").append(idImprimir).append("]").append("\n");
+            codigoIntermedioText.append("\tMOV\tESI, AX\n");
             codigoIntermedioText.append("\tLEA\tRDI, [rel fmtfloat]\n");
             codigoIntermedioText.append("\tXOR\tEAX, EAX\n");
             codigoIntermedioText.append("\tCALL\tprintf wrt ..plt\n");
@@ -168,8 +168,12 @@ public class CodigoIntermedio {
             lineaFinal = elseStack.pop().getThird();
             while(num < lineaFinal) {
                 codeGenerator();
-                key = keys.getFirst();
-                num = expressionTrees.get(key).getToken().getLinea();
+                try {
+                    key = keys.getFirst();
+                    num = expressionTrees.get(key).getToken().getLinea();
+                } catch (Exception e) {
+                    num++;
+                }
             }
         }
         return esteIf;
@@ -206,14 +210,14 @@ public class CodigoIntermedio {
             Token var2 = variables.pop();
             String var1String =(isNumToken(var1) || isNumnToken(var1)) ? var1.getValor() : "[rel " + var1.getValor() + "]";
             String var2String =(isNumToken(var2) || isNumnToken(var2)) ? var2.getValor() : "[rel " + var2.getValor() + "]";
-
-            codigoIntermedioText.append("\tMOV\t").append("AX, ").append(var2String).append("\n");
+            String registro = (var2.getTipo() == TiposDeTokens.FLOAT)? "EAX, ": "AX, ";
+            codigoIntermedioText.append("\tMOV\t").append(registro).append(var2String).append("\n");
             switch (operador.getTipo()){
                 case SUMA:
-                    codigoIntermedioText.append("\tADD\t").append("AX, ").append(var1String).append("\n");
+                    codigoIntermedioText.append("\tADD\t").append(registro).append(var1String).append("\n");
                     break;
                 case RESTA:
-                    codigoIntermedioText.append("\tSUB\t").append("AX, ").append(var1String).append("\n");
+                    codigoIntermedioText.append("\tSUB\t").append(registro).append(var1String).append("\n");
                     break;
                 case MULTIPLICACION:
                     codigoIntermedioText.append("\tMOV\t").append("BX, ").append(var1String).append("\n");
@@ -224,23 +228,23 @@ public class CodigoIntermedio {
                     codigoIntermedioText.append("\tDIV\t").append("BX").append("\n");
                     break;
                 case MAYOR:
-                    codigoIntermedioText.append("\tCMP\t").append("AX, ").append(var1String).append("\n");
+                    codigoIntermedioText.append("\tCMP\t").append(registro).append(var1String).append("\n");
                     codigoIntermedioText.append("\tJLE\t");
                     break;
                     case MENOR:
-                    codigoIntermedioText.append("\tCMP\t").append("AX, ").append(var1String).append("\n");
+                    codigoIntermedioText.append("\tCMP\t").append(registro).append(var1String).append("\n");
                     codigoIntermedioText.append("\tJGE\t");
                     break;
                     case MAYOR_IGUAL:
-                    codigoIntermedioText.append("\tCMP\t").append("AX, ").append(var1String).append("\n");
+                    codigoIntermedioText.append("\tCMP\t").append(registro).append(var1String).append("\n");
                     codigoIntermedioText.append("\tJL\t");
                     break;
                     case MENOR_IGUAL:
-                    codigoIntermedioText.append("\tCMP\t").append("AX, ").append(var1String).append("\n");
+                    codigoIntermedioText.append("\tCMP\t").append(registro).append(var1String).append("\n");
                     codigoIntermedioText.append("\tJG\t");
                     break;
                     case IGUAL:
-                    codigoIntermedioText.append("\tCMP\t").append("AX, ").append(var1String).append("\n");
+                    codigoIntermedioText.append("\tCMP\t").append(registro).append(var1String).append("\n");
                     codigoIntermedioText.append("\tJNE\t");
             }
             variables.push(new Token(TiposDeTokens.NUMERO, "AX", 0));
@@ -321,7 +325,7 @@ public class CodigoIntermedio {
                 }
             }
             if (identificadores.get(key).get(0).equals("BOOLEAN")) {
-                if(getFirstExpression(key).equals("?"))
+                if(valor.equals("?"))
                     codigoIntermedioBss.append(key).append("\t DB\t ?\n");
                 else {
                     codigoIntermedioData.append(key).append("\t DB\t ").append(valor).append("\n");
@@ -334,17 +338,17 @@ public class CodigoIntermedio {
         List<Vector<String>> keys = new ArrayList<>(expressionTrees.keySet());
         keys.sort(Comparator.comparingInt(key -> Integer.parseInt(key.get(1))));
         for(Vector<String> key : keys){
-            if(!key.get(0).equals(id)){
+            if(!key.getFirst().equals(id)){
                continue;
             }
             ExpressionNode tree = expressionTrees.get(key);
             if(tree.getLeft() != null && tree.getRight() != null){
                 return "?";
             }
-            if (tree.getToken().getValor().equals("true") ){
+            if (tree.getToken().getTipo() == TiposDeTokens.TRUE){
                 expressionTrees.remove(key);
                 return "1";
-            } else if (tree.getToken().getValor().equals("false")) {
+            } else if (tree.getToken().getTipo() == TiposDeTokens.FALSE) {
                 expressionTrees.remove(key);
                 return "0";
             }
