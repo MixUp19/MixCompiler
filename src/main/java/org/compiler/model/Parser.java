@@ -93,7 +93,7 @@ public class Parser {
     private void definirID() throws Exception {
         TiposDeTokens tipo = tokens.get(pos).getTipo();
         consume(tokens.get(pos).getTipo().getTipoInt());
-        if (tablaID.revisarID(tokens.get(pos).getValor())) {
+        if (tablaID.revisarID(tokens.get(pos).getValor())!= null) {
             semanticErrorMessage = "Error, la variable " + tokens.get(pos).getValor() + " en la linea " + tokens.get(pos).getLinea() + " ya ha sido declarada";
             semanticError = true;
             consume(TiposDeTokens.ID.getTipoInt());

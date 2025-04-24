@@ -19,4 +19,8 @@ public class ID {
     public String getId() {
         return id;
     }
+
+    public TiposDeTokens getTipo() {
+        return tipo;
+    }
 }

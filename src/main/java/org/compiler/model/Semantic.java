@@ -1,11 +1,8 @@
 package org.compiler.model;
 
-import org.compiler.model.util.ASTNode;
-import org.compiler.model.util.ExpressionNode;
-import org.compiler.model.util.TablaID;
-import org.compiler.model.util.TiposDeTokens;
+import org.compiler.model.util.*;
 
-import java.util.*;
+import java.util.HashSet;
 
 public class Semantic {
     private TablaID tablaID;
@@ -13,7 +10,6 @@ public class Semantic {
     private final HashSet<String> iDsWithValue = new HashSet<>();
     private boolean error;
     private String message;
-    private int relationalOperators = 0;
 
     public Semantic(boolean error, String message, TablaID tablaID, ASTNode root) {
         this.error = error;
@@ -28,7 +24,7 @@ public class Semantic {
 
     public void semantic() {
         try {
-            semanticCheck();
+            semanticCheck(root);
             this.message = "todo bien";
         } catch (Exception e) {
             this.error = true;
@@ -36,165 +32,160 @@ public class Semantic {
         }
     }
 
-    private void semanticCheck() throws Exception {
-        List<Vector<String>> keys = new ArrayList<>(expressionTrees.keySet());
-        keys.sort(Comparator.comparingInt(key -> Integer.parseInt(key.get(1))));
-        for (Vector<String> key : keys) {
-            String id = key.get(0);
-            ExpressionNode tree = expressionTrees.get(key);
-
-            if (id.equals("read")) {
-                validateRead(tree);
-                continue;
+    private void semanticCheck(ASTNode node) throws Exception {
+        ASTNode current = node.getChild();
+        while (current != null) {
+            switch (current) {
+                case ExpressionNode expressionNode:
+                    validateExNode(expressionNode);
+                    break;
+                case IfNode ifNode:
+                    validateIfNode(ifNode);
+                    break;
+                case WhileNode whileNode:
+                    validateWhile(whileNode);
+                    break;
+                default:
+                    break;
             }
-
-            if (id.equals("print") || id.equals("println")) {
-                validatePrint(tree);
-                continue;
-            }
-            TiposDeTokens tipo = getTipo(id);
-            if (isRelationalExpression(tipo)) {
-                if (validateForIFindWhileWithJustAnID(tree) && !isBooleanID(tree.getToken().getValor())) {
-                    throw new Exception("Error, se esperaba un tipo BOOLEAN para la expresion");
-                } else if (validateForIFindWhileWithJustAnID(tree) && isBooleanID(tree.getToken().getValor())) {
-                    continue;
-                }
-                if (validateJustForTrueOrFalse(tree)) {
-                    iDsWithValue.add(id);
-                    continue;
-                }
-            }
-            checkIDsTree(tree, tipo);
-            iDsWithValue.add(id);
-            if (isRelationalExpression(tipo) && relationalOperators < 1) {
-                throw new Exception("Error, se esperaba un operador relacional en la expresion");
-            }
-            relationalOperators = 0;
         }
     }
 
-    private void checkIDsTree(ExpressionNode tree, TiposDeTokens tipo) throws Exception {
+    private void validateExNode(ExpressionNode node) throws Exception {
+        switch (node.getToken().getTipo()) {
+            case ASIGNACION:
+                validateAssignation(node);
+                break;
+            case PRINT:
+            case PRINTLN:
+                validatePrint(node);
+                break;
+            case READ:
+                validateRead(node);
+                break;
+            default:
+                checkIDsTree(node, null); // Permitir cualquier tipo
+        }
+
+    }
+
+    private void validateAssignation(ExpressionNode node) throws Exception {
+        ExpressionNode left = node.getLeft();
+        ExpressionNode right = node.getRight();
+
+        if (left.getToken().getTipo() != TiposDeTokens.ID) {
+            throw new Exception("Error, se esperaba un ID en la asignación");
+        }
+
+        String id = left.getToken().getValor();
+        ID idObj = tablaID.revisarID(id);
+        if (idObj == null) {
+            throw new Exception("Error, la variable " + id + " no ha sido declarada");
+        }
+
+        TiposDeTokens tipo = idObj.getTipo();
+        checkIDsTree(right, tipo);
+        iDsWithValue.add(id);
+    }
+
+    private void validateWhile(WhileNode node) throws Exception {
+        ExpressionNode condition = node.getCondition();
+        checkIDsTree(condition, TiposDeTokens.BOOLEAN);
+    }
+
+    private void validateIfNode(IfNode node) throws Exception {
+        ExpressionNode condition = node.getCondition();
+        checkIDsTree(condition, TiposDeTokens.BOOLEAN);
+    }
+
+    private void validatePrint(ExpressionNode node) throws Exception {
+        if (node.getRight() == null) {
+            throw new Exception("Error, se esperaba una expresión en la instrucción PRINT/PRINTLN");
+        }
+        ExpressionNode expression = node.getRight();
+        checkIDsTree(expression, null); // Permitir cualquier tipo
+    }
+
+    private void validateRead(ExpressionNode node) throws Exception {
+        if (node.getRight() == null || node.getRight().getToken().getTipo() != TiposDeTokens.ID) {
+            throw new Exception("Error, se esperaba un ID para la función READ");
+        }
+        String id = node.getRight().getToken().getValor();
+        if (tablaID.revisarID(id) == null) {
+            throw new Exception("Error, la variable " + id + " no ha sido declarada");
+        }
+        iDsWithValue.add(id);
+    }
+
+    private void checkIDsTree(ExpressionNode tree, TiposDeTokens tipoEsperado) throws Exception {
         if (tree == null) {
             return;
         }
-        if (isOperator(tree.getToken().getTipo())) {
-            if (isRelationalOperator(tree.getToken().getTipo()) && tipo != TiposDeTokens.BOOLEAN) {
-                throw new Exception("Error, se esperaba un tipo BOOLEAN para la expresion");
-            }
-            if (isRelationalOperator(tree.getToken().getTipo())) {
-                relationalOperators++;
-            }
-            if (relationalOperators > 1) {
-                throw new Exception("Error, solo se permite un operador relacional por expresion");
-            }
-            if (tipo == TiposDeTokens.STRING && tree.getToken().getTipo() != TiposDeTokens.SUMA) {
-                throw new Exception("Error, solo se permite la concatenacion de cadenas");
+
+        TiposDeTokens tipoActual = tree.getToken().getTipo();
+
+        // Validar operadores
+        if (isOperator(tipoActual)) {
+            TiposDeTokens tipoIzquierdo = getTipo(tree.getLeft());
+            TiposDeTokens tipoDerecho = getTipo(tree.getRight());
+
+            if (isRelationalOperator(tipoActual)) {
+                if (tipoIzquierdo != tipoDerecho) {
+                    throw new Exception("Error, los operandos de un operador relacional deben ser del mismo tipo");
+                }
+                if (tipoEsperado != null && tipoEsperado != TiposDeTokens.BOOLEAN) {
+                    throw new Exception("Error, se esperaba un tipo BOOLEAN para la expresión relacional");
+                }
+            } else if (tipoActual == TiposDeTokens.SUMA && tipoEsperado == TiposDeTokens.STRING) {
+                if (tipoIzquierdo != TiposDeTokens.STRING || tipoDerecho != TiposDeTokens.STRING && tipoIzquierdo != TiposDeTokens.Cadena || tipoDerecho != TiposDeTokens.Cadena) {
+                    throw new Exception("Error, solo se permite la concatenación de cadenas con el operador '+'");
+                }
+            } else if (tipoIzquierdo != tipoDerecho) {
+                throw new Exception("Error, los operandos deben ser del mismo tipo");
             }
         }
-        if (tree.getToken().getTipo() == TiposDeTokens.CADENA) {
-            if (tipo != TiposDeTokens.STRING) {
-                throw new Exception("Error, se esperaba un tipo de variable STRING");
-            }
-        }
-        if (tree.getToken().getTipo() == TiposDeTokens.N_FRACCION) {
-            if (tipo == TiposDeTokens.INT) {
-                throw new Exception("Error, se esperaba un tipo de variable FLOAT");
-            }
-        }
-        if (tree.getToken().getTipo() == TiposDeTokens.ID) {
-            if (!identificadores.containsKey(tree.getToken().getValor())) {
+
+        // Validar IDs
+        if (tipoActual == TiposDeTokens.ID) {
+            ID idObj = tablaID.revisarID(tree.getToken().getValor());
+            if (idObj == null) {
                 throw new Exception("Error, la variable " + tree.getToken().getValor() + " no ha sido declarada");
             }
-            if (!iDsWithValue.contains(tree.getToken().getValor())) {
-                throw new Exception("Error, la variable " + tree.getToken().getValor() + " no ha sido inicializada");
-            }
-            if (tipo == TiposDeTokens.INT) {
-                validateForInt(TiposDeTokens.getEnumByString(identificadores.get(tree.getToken().getValor()).get(0)));
-            }
-            if (tipo == TiposDeTokens.FLOAT) {
-                validateForFloat(TiposDeTokens.getEnumByString(identificadores.get(tree.getToken().getValor()).get(0)));
+            if (tipoEsperado != null && idObj.getTipo() != tipoEsperado) {
+                throw new Exception("Error, se esperaba un tipo " + tipoEsperado + " pero se encontró " + idObj.getTipo());
             }
         }
-        checkIDsTree(tree.getLeft(), tipo);
-        checkIDsTree(tree.getRight(), tipo);
+
+        // Validar hijos recursivamente
+        checkIDsTree(tree.getLeft(), tipoEsperado);
+        checkIDsTree(tree.getRight(), tipoEsperado);
     }
 
-    private boolean isRelationalExpression(TiposDeTokens tipo) {
-        return tipo == TiposDeTokens.BOOLEAN || tipo == TiposDeTokens.IF || tipo == TiposDeTokens.WHILE;
-    }
-
-    private TiposDeTokens getTipo(String id) {
-        return (id.equals("IF") || id.equals("WHILE")) ? TiposDeTokens.BOOLEAN : TiposDeTokens.getEnumByString(identificadores.get(id).get(0));
-    }
-
-    private void validateForInt(TiposDeTokens tipo) throws Exception {
-        if (tipo != TiposDeTokens.INT && tipo != TiposDeTokens.NUMERO) {
-            throw new Exception("Error, se esperaba un tipo INT");
+    // Método auxiliar para obtener el tipo de un nodo
+    private TiposDeTokens getTipo(ExpressionNode node) throws Exception {
+        if (node == null) {
+            return null;
         }
-    }
-
-    private void validateForFloat(TiposDeTokens tipo) throws Exception {
-        if (tipo != TiposDeTokens.INT && tipo != TiposDeTokens.FLOAT && tipo != TiposDeTokens.NUMERO && tipo != TiposDeTokens.N_FRACCION) {
-            throw new Exception("Error, se esperaba un tipo Numerico");
+        if (node.getToken().getTipo() == TiposDeTokens.ID) {
+            ID idObj = tablaID.revisarID(node.getToken().getValor());
+            if (idObj == null) {
+                throw new Exception("Error, la variable " + node.getToken().getValor() + " no ha sido declarada");
+            }
+            return idObj.getTipo();
         }
+        return node.getToken().getTipo();
     }
 
     private boolean isRelationalOperator(TiposDeTokens token) {
-        return token == TiposDeTokens.MAYOR || token == TiposDeTokens.MENOR || token == TiposDeTokens.MAYOR_IGUAL || token == TiposDeTokens.MENOR_IGUAL || token == TiposDeTokens.IGUAL;
+        return token == TiposDeTokens.MAYOR || token == TiposDeTokens.MENOR || 
+               token == TiposDeTokens.MAYOR_IGUAL || token == TiposDeTokens.MENOR_IGUAL || 
+               token == TiposDeTokens.IGUAL;
     }
 
     private boolean isOperator(TiposDeTokens token) {
-        return token == TiposDeTokens.SUMA ||
-                token == TiposDeTokens.RESTA ||
-                token == TiposDeTokens.MULTIPLICACION ||
-                token == TiposDeTokens.DIVISION ||
-                token == TiposDeTokens.MAYOR ||
-                token == TiposDeTokens.MENOR ||
-                token == TiposDeTokens.MAYOR_IGUAL ||
-                token == TiposDeTokens.MENOR_IGUAL ||
-                token == TiposDeTokens.IGUAL;
-    }
-
-    private boolean validateForIFindWhileWithJustAnID(ExpressionNode tree) {
-        return tree.getToken().getTipo() == TiposDeTokens.ID && tree.getLeft() == null && tree.getRight() == null;
-    }
-
-    private boolean validateJustForTrueOrFalse(ExpressionNode tree) {
-        return (tree.getLeft() == null && tree.getRight() == null) && (tree.getToken().getTipo() == TiposDeTokens.TRUE || tree.getToken().getTipo() == TiposDeTokens.FALSE);
-    }
-
-    private boolean isBooleanID(String id) {
-        return identificadores.get(id).get(0).equals("BOOLEAN");
-    }
-
-    private void validateRead(ExpressionNode tree) throws Exception {
-        if (!validateForIFindWhileWithJustAnID(tree)) {
-            throw new Exception("Error, se esperaba un ID para la funcion READ");
-        }
-        if (!identificadores.containsKey(tree.getToken().getValor())) {
-            throw new Exception("Error, la variable " + tree.getToken().getValor() + " no ha sido declarada");
-        }
-        iDsWithValue.add(tree.getToken().getValor());
-    }
-
-    private void validatePrint(ExpressionNode tree) throws Exception {
-        try {
-            checkIDsTree(tree, TiposDeTokens.INT);
-        } catch (Exception e) {
-            try {
-                checkIDsTree(tree, TiposDeTokens.FLOAT);
-            } catch (Exception e1) {
-                try {
-                    checkIDsTree(tree, TiposDeTokens.STRING);
-                } catch (Exception e2) {
-                    try {
-                        checkIDsTree(tree, TiposDeTokens.BOOLEAN);
-                    } catch (Exception e3) {
-                        throw new Exception("Expresión invalida: " + e3.getMessage());
-                    }
-                }
-            }
-        }
+        return token == TiposDeTokens.SUMA || token == TiposDeTokens.RESTA || 
+               token == TiposDeTokens.MULTIPLICACION || token == TiposDeTokens.DIVISION || 
+               isRelationalOperator(token);
     }
 
     public boolean isError() {
