@@ -52,7 +52,7 @@ public class CodigoIntermedio {
         }
         for(Vector<String> key: keys){
             System.out.printf("variable %s en linea %s con expresión: ", key.get(0), key.get(1));
-            expressionTrees.get(key).preoder();
+            System.out.println(expressionTrees.get(key));
             System.out.println();
         }
         var key = keys.getFirst();

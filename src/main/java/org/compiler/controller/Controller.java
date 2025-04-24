@@ -33,7 +33,7 @@ public class Controller implements ActionListener{
                 return;
             }
             pantalla.setLog(parser.getMessage(), parser.isError(), "parser");
-            semantic = new Semantic(parser.isSemanticError(), parser.getSemanticErrorMessage(), parser.getIdentificadores(), parser.getExpressionTrees());
+            semantic = new Semantic(parser.isSemanticError(), parser.getSemanticErrorMessage(), parser.getTablaID(), parser.getRoot());
             return;
         }
         if(e.getSource() == pantalla.getSemanticButton()){

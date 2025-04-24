@@ -1,23 +1,25 @@
 package org.compiler.model;
 
+import org.compiler.model.util.ASTNode;
 import org.compiler.model.util.ExpressionNode;
+import org.compiler.model.util.TablaID;
 import org.compiler.model.util.TiposDeTokens;
 
 import java.util.*;
 
 public class Semantic {
-    private final HashMap<String, ArrayList<String>> identificadores = new HashMap<>();
-    private final HashMap<Vector<String>, ExpressionNode> expressionTrees = new HashMap<>();
+    private TablaID tablaID;
+    private ASTNode root;
     private final HashSet<String> iDsWithValue = new HashSet<>();
     private boolean error;
     private String message;
     private int relationalOperators = 0;
 
-    public Semantic(boolean error, String message, HashMap<String, ArrayList<String>> identificadores, HashMap<Vector<String>, ExpressionNode> expressionTrees) {
+    public Semantic(boolean error, String message, TablaID tablaID, ASTNode root) {
         this.error = error;
         this.message = message;
-        this.identificadores.putAll(identificadores);
-        this.expressionTrees.putAll(expressionTrees);
+        this.tablaID = tablaID;
+        this.root = root;
         if (error) {
             return;
         }

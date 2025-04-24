@@ -1,20 +1,14 @@
 package org.compiler.model;
 
-import org.compiler.model.util.ExpressionNode;
-import org.compiler.model.util.Pair;
-import org.compiler.model.util.Token;
-import org.compiler.model.util.TiposDeTokens;
+import org.compiler.model.util.*;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Vector;
+import java.util.*;
 
 public class Parser {
     private final ArrayList<Token> tokens;
-    private final ArrayList<Pair<String, Integer, Integer>> estruturasDeFlujo;
-    private final HashMap<String, ArrayList<String>> identificadores = new HashMap<>();
-    private final HashMap<Vector<String>, ExpressionNode> expressionTrees = new HashMap<>();
+    private TablaID tablaID;
+    private ASTNode root;
+    private final Stack<ASTNode> stack;
     private boolean semanticError;
     private String semanticErrorMessage;
     private String message;
@@ -22,11 +16,14 @@ public class Parser {
     private int pos;
 
     public Parser(ArrayList<Token> codigo) {
-        this.estruturasDeFlujo = new ArrayList<>();
+        tablaID = new TablaID();
+        this.stack = new Stack<>();
         this.tokens = codigo;
+        this.root = new ASTNode();
         pos = 0;
         semanticError = false;
         parse();
+        System.out.print(root);
     }
 
     public void parse() {
@@ -94,30 +91,43 @@ public class Parser {
     }
 
     private void definirID() throws Exception {
-        ArrayList<String> tipo = new ArrayList<>(2);
-        tipo.addAll(List.of(tokens.get(pos).getTipo().toString(), String.valueOf(tokens.get(pos).getLinea())));
+        TiposDeTokens tipo = tokens.get(pos).getTipo();
         consume(tokens.get(pos).getTipo().getTipoInt());
-        if (identificadores.containsKey(tokens.get(pos).getValor())) {
+        if (tablaID.revisarID(tokens.get(pos).getValor())) {
             semanticErrorMessage = "Error, la variable " + tokens.get(pos).getValor() + " en la linea " + tokens.get(pos).getLinea() + " ya ha sido declarada";
             semanticError = true;
             consume(TiposDeTokens.ID.getTipoInt());
             consume(TiposDeTokens.PC.getTipoInt());
             return;
         }
-        identificadores.put(tokens.get(pos).getValor(), tipo);
+        String id = tokens.get(pos).getValor();
+        int linea = tokens.get(pos).getLinea();
+        String valor = null;
         consume(TiposDeTokens.ID.getTipoInt());
-        consume(TiposDeTokens.PC.getTipoInt());
+        if (tokens.get(pos).getTipo() == TiposDeTokens.ASIGNACION) {
+            consume(TiposDeTokens.ASIGNACION.getTipoInt());
+            if (tokens.get(pos + 1).getTipo() == TiposDeTokens.PC) {
+                valor = tokens.get(pos).getValor();
+            } else {
+                pos -= 2;
+                asignarValor();
+            }
+        } else {
+            consume(TiposDeTokens.PC.getTipoInt());
+        }
+        ID idObj = new ID(id, tipo, valor, linea);
+        tablaID.agregarID(idObj);
     }
 
     private void asignarValor() throws Exception {
         validateAssignation();
-        String variable = tokens.get(pos).getValor();
-        int linea = tokens.get(pos).getLinea();
+        ExpressionNode left = new ExpressionNode(tokens.get(pos), null, null);
         consume(tokens.get(pos).getTipo().getTipoInt());
+        ExpressionNode root = new ExpressionNode(tokens.get(pos), left, null);
         consume(TiposDeTokens.ASIGNACION.getTipoInt());
         ExpressionNode exprTree = buildTreeExpression();
-        Vector<String> key = new Vector<>(List.of(variable, String.valueOf(linea)));
-        expressionTrees.put(key, exprTree);
+        root.setRight(exprTree);
+        this.root.addChild(root);
         consume(TiposDeTokens.PC.getTipoInt());
     }
 
@@ -190,31 +200,34 @@ public class Parser {
     }
 
     private void read() throws Exception {
+        ExpressionNode root = new ExpressionNode(tokens.get(pos), null, null);
         consume(TiposDeTokens.READ.getTipoInt());
         consume(TiposDeTokens.APERTO_PAR.getTipoInt());
         ExpressionNode exprTree = buildTreeExpression();
-        Vector<String> key = new Vector<>(List.of("read", String.valueOf(tokens.get(pos).getLinea())));
-        expressionTrees.put(key, exprTree);
+        root.setRight(exprTree);
+        this.root.addChild(root);
         consume(TiposDeTokens.CERRADO_PAR.getTipoInt());
         consume(TiposDeTokens.PC.getTipoInt());
     }
 
     private void print() throws Exception {
+        ExpressionNode root = new ExpressionNode(tokens.get(pos), null, null);
         consume(TiposDeTokens.PRINT.getTipoInt());
         consume(TiposDeTokens.APERTO_PAR.getTipoInt());
         ExpressionNode exprTree = buildTreeExpression();
-        Vector<String> key = new Vector<>(List.of("print", String.valueOf(tokens.get(pos).getLinea())));
-        expressionTrees.put(key, exprTree);
+        root.setRight(exprTree);
+        this.root.addChild(root);
         consume(TiposDeTokens.CERRADO_PAR.getTipoInt());
         consume(TiposDeTokens.PC.getTipoInt());
     }
 
     private void println() throws Exception {
+        ExpressionNode root = new ExpressionNode(tokens.get(pos), null, null);
         consume(TiposDeTokens.PRINTLN.getTipoInt());
         consume(TiposDeTokens.APERTO_PAR.getTipoInt());
         ExpressionNode exprTree = buildTreeExpression();
-        Vector<String> key = new Vector<>(List.of("println", String.valueOf(tokens.get(pos).getLinea())));
-        expressionTrees.put(key, exprTree);
+        root.setRight(exprTree);
+        this.root.addChild(root);
         consume(TiposDeTokens.CERRADO_PAR.getTipoInt());
         consume(TiposDeTokens.PC.getTipoInt());
     }
@@ -223,43 +236,50 @@ public class Parser {
         consume(TiposDeTokens.WHILE.getTipoInt());
         consume(TiposDeTokens.APERTO_PAR.getTipoInt());
         ExpressionNode exprTree = buildTreeExpression();
-        Vector<String> key = new Vector<>(List.of("WHILE", String.valueOf(tokens.get(pos).getLinea())));
-        expressionTrees.put(key, exprTree);
-        Pair<String, Integer, Integer> pair = new Pair<>("WHILE", tokens.get(pos).getLinea(), 0);
+        tablaID = new TablaID(tablaID);
+        stack.push(root);
+        WhileNode whileNode = new WhileNode(exprTree, tablaID);
+        root = whileNode.getBlock();
         consume(TiposDeTokens.CERRADO_PAR.getTipoInt());
         consume(TiposDeTokens.APERTO_LLA.getTipoInt());
         declaracion();
-        pair.setThird(tokens.get(pos).getLinea());
-        estruturasDeFlujo.add(pair);
         consume(TiposDeTokens.CERRADO_LLA.getTipoInt());
+        tablaID = tablaID.getPadre();
+        root = stack.pop();
+        root.addChild(whileNode);
     }
 
     private void ifMetodo() throws Exception {
         consume(TiposDeTokens.IF.getTipoInt());
         consume(TiposDeTokens.APERTO_PAR.getTipoInt());
         ExpressionNode exprTree = buildTreeExpression();
-        Vector<String> key = new Vector<>(List.of("IF", String.valueOf(tokens.get(pos).getLinea())));
-        Pair<String, Integer, Integer> pair = new Pair<>("IF", tokens.get(pos).getLinea(), 0);
-        estruturasDeFlujo.add(pair);
-        expressionTrees.put(key, exprTree);
+        tablaID = new TablaID(tablaID);
+        stack.push(root);
+        IfNode ifNode = new IfNode(exprTree,new ASTNode(),  tablaID);
+        root = ifNode.getThenBlock();
         consume(TiposDeTokens.CERRADO_PAR.getTipoInt());
         consume(TiposDeTokens.APERTO_LLA.getTipoInt());
         declaracion();
-        pair.setThird(tokens.get(pos).getLinea());
         consume(TiposDeTokens.CERRADO_LLA.getTipoInt());
+        tablaID = tablaID.getPadre();
+        root = stack.pop();
         if (verificar(TiposDeTokens.ELSE.getTipoInt())) {
-            pair = new Pair<>("ELSE", tokens.get(pos).getLinea(), 0);
-            estruturasDeFlujo.add(pair);
+            tablaID = new TablaID(tablaID);
+            stack.push(root);
+            root = new ASTNode();
             consume(TiposDeTokens.ELSE.getTipoInt());
             consume(TiposDeTokens.APERTO_LLA.getTipoInt());
             declaracion();
-            pair.setThird(tokens.get(pos).getLinea());
+            ifNode.setElse(root, tablaID);
             consume(TiposDeTokens.CERRADO_LLA.getTipoInt());
+            tablaID = tablaID.getPadre();
+            root = stack.pop();
         }
+        root.addChild(ifNode);
     }
 
     private void validateAssignation() {
-        if (!semanticError && !identificadores.containsKey(tokens.get(pos).getValor())) {
+        if (!semanticError && tablaID.revisarID(tokens.get(pos).getValor())!=null) {
             semanticErrorMessage = "Error, la variable " + tokens.get(pos).getValor() + " en la linea " + tokens.get(pos).getLinea() + " no ha sido declarada";
             semanticError = true;
         }
@@ -281,15 +301,11 @@ public class Parser {
         return semanticErrorMessage;
     }
 
-    public HashMap<String, ArrayList<String>> getIdentificadores() {
-        return identificadores;
+    public ASTNode getRoot() {
+        return root;
     }
 
-    public HashMap<Vector<String>, ExpressionNode> getExpressionTrees() {
-        return expressionTrees;
-    }
-
-    public ArrayList<Pair<String, Integer, Integer>> getEstruturasDeFlujo() {
-        return estruturasDeFlujo;
+    public TablaID getTablaID() {
+        return tablaID;
     }
 }

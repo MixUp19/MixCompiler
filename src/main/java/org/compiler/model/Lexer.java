@@ -14,7 +14,7 @@ public class Lexer {
     private final Map<String, TiposDeTokens> palabrasReservadasMap = new HashMap<>();
     private final ArrayList<Token> tokens = new ArrayList<>();
 
-    private final Pattern patternID = Pattern.compile("[a-zA-Z]+");
+    private final Pattern patternID = Pattern.compile("[a-zA-Z0-9]+");
     private final Pattern patternNUMERO = Pattern.compile("[0-9]+");
     private final Pattern patternN_FRACCION = Pattern.compile("[0-9]+\\.[0-9]+");
     private final Pattern patternAPERTO_PAR = Pattern.compile("\\(");
