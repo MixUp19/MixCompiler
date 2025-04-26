@@ -102,7 +102,7 @@ public class Parser {
         }
         String id = tokens.get(pos).getValor();
         int linea = tokens.get(pos).getLinea();
-        String valor = null;
+        String valor = "?";
         consume(TiposDeTokens.ID.getTipoInt());
         if (tokens.get(pos).getTipo() == TiposDeTokens.ASIGNACION) {
             consume(TiposDeTokens.ASIGNACION.getTipoInt());
@@ -279,7 +279,7 @@ public class Parser {
     }
 
     private void validateAssignation() {
-        if (!semanticError && tablaID.revisarID(tokens.get(pos).getValor())!=null) {
+        if (!semanticError && tablaID.revisarID(tokens.get(pos).getValor())==null) {
             semanticErrorMessage = "Error, la variable " + tokens.get(pos).getValor() + " en la linea " + tokens.get(pos).getLinea() + " no ha sido declarada";
             semanticError = true;
         }

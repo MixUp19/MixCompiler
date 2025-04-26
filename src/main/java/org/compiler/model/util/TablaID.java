@@ -5,14 +5,17 @@ import java.util.ArrayList;
 public class TablaID {
     private TablaID padre;
     private final ArrayList<ID> tabla;
+    private int actual;
 
     public TablaID() {
         this.tabla = new ArrayList<>();
         this.padre = null;
+        actual = 0;
     }
     public TablaID(TablaID padre) {
         this.tabla = new ArrayList<>();
         this.padre = padre;
+        actual = 0;
     }
 
     public boolean agregarID(ID id) {
@@ -32,6 +35,14 @@ public class TablaID {
         }
         if (padre != null) {
             return padre.revisarID(id);
+        }
+        return null;
+    }
+
+
+    public ID getActual(){
+        if (actual < tabla.size()) {
+            return tabla.get(actual++);
         }
         return null;
     }

@@ -23,4 +23,8 @@ public class ID {
     public TiposDeTokens getTipo() {
         return tipo;
     }
+
+    public String getValor() {
+        return valor;
+    }
 }

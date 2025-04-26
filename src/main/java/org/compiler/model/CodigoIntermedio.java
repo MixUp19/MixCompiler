@@ -1,9 +1,6 @@
 package org.compiler.model;
 
-import org.compiler.model.util.ExpressionNode;
-import org.compiler.model.util.Pair;
-import org.compiler.model.util.Token;
-import org.compiler.model.util.TiposDeTokens;
+import org.compiler.model.util.*;
 
 import java.util.*;
 
@@ -11,88 +8,57 @@ public class CodigoIntermedio {
     private final StringBuilder codigoIntermedioData;
     private final StringBuilder codigoIntermedioBss;
     private final StringBuilder codigoIntermedioText;
-    private final ArrayList<Token> tokens;
-    private final HashMap<String, ArrayList<String>> identificadores;
-    private final HashMap<Vector<String>, ExpressionNode> expressionTrees;
-    private final ArrayList<Pair<String, Integer, Integer>> estructurasControl;
-    private Pair<String, Integer, Integer> estructuraControlActual;
-    private final Stack<Pair<String, Integer, Integer>> elseStack;
-    private final List<Vector<String>> keys;
+    private TablaID tablaID;
+    private ASTNode root;
+    private Stack<ASTNode> rootStack;
     private int numIf = 0;
     private int numWhile = 0;
 
-    public CodigoIntermedio(ArrayList<Token> tokens,
-                            HashMap<String, ArrayList<String>> identificadores,
-                            HashMap<Vector<String>, ExpressionNode> expressionTrees,
-                            ArrayList<Pair<String, Integer, Integer>> estructurasControl) {
-        this.tokens = tokens;
-        this.identificadores = identificadores;
-        this.expressionTrees = expressionTrees;
+    public CodigoIntermedio(
+                            TablaID tablaID,
+                            ASTNode root) {
+        this.tablaID = tablaID;
+        this.root = root;
         this.codigoIntermedioData = new StringBuilder();
         this.codigoIntermedioBss = new StringBuilder();
         this.codigoIntermedioText = new StringBuilder();
-        this.estructurasControl = estructurasControl;
-        elseStack = new Stack<>();
+        this.rootStack = new Stack<>();
         directiveGenerator();
-        keys = new ArrayList<>(expressionTrees.keySet());
-        keys.sort(Comparator.comparingInt(key -> Integer.parseInt(key.get(1))));
-        try {
-            estructuraControlActual = estructurasControl.getFirst();
-            estructurasControl.removeFirst();
-        } catch (Exception e) {
-
-        }
-        while(!keys.isEmpty())
-            codeGenerator();
+        codeGenerator(root);
     }
 
-    private void codeGenerator(){
-        if(keys.isEmpty()){
-            return;
+    private void codeGenerator(ASTNode root) {
+        root.resetCurrent();
+        ASTNode current = root.getChild();
+        while (current != null) {
+            switch (current) {
+                case ExpressionNode ex -> expresionEvaluator(ex);
+                case WhileNode whileNode -> whileGenerator(whileNode);
+                case IfNode ifNode -> ifGenerator(ifNode);
+                default -> throw new IllegalStateException("Unexpected value: " + current);
+            }
+            current = root.getChild();
         }
-        for(Vector<String> key: keys){
-            System.out.printf("variable %s en linea %s con expresión: ", key.get(0), key.get(1));
-            System.out.println(expressionTrees.get(key));
-            System.out.println();
-        }
-        var key = keys.getFirst();
-        keys.removeFirst();
-        String id = key.getFirst();
-        ExpressionNode tree = expressionTrees.get(key);
-        switch (id) {
-            case "read" ->
-                readGenerator(tree, id);
-            case "print", "println" ->
-                printGenerator(tree, id);
-            case "IF" -> {
-                var esteIf = ifGenerator(tree, id);
-                codigoIntermedioText.append(".FINIF").append(esteIf).append(":\n");
-            }
-            case "WHILE" -> {
-                whileGenerator(tree, id);
-                numWhile++;
-            }
-            default -> {
-                evaluarExpresion(tree, id);
-            }
+    }
+    private void expresionEvaluator(ExpressionNode expresion) {
+        var token = expresion.getToken();
+        switch (token.getTipo()){
+            case PRINT, PRINTLN -> printGenerator(expresion.getRight(), token.getValor());
+            case READ -> readGenerator(expresion.getRight());
+            case ASIGNACION -> evaluarExpresion(expresion.getRight(), expresion.getLeft().getToken().getValor());
         }
     }
 
-    private void whileGenerator(ExpressionNode tree, String id) {
-        var lineaFinal = estructuraControlActual.getThird();
+    private void whileGenerator(WhileNode tree) {
         var esteWhile = numWhile++;
-        try {
-            estructuraControlActual = estructurasControl.getFirst();
-            estructurasControl.removeFirst();
-        } catch (Exception e) {
-            System.out.println("No hay más estructuras de control");
-        }
+        ExpressionNode expresion = tree.getCondition();
         codigoIntermedioText.append(".WHILE").append(esteWhile).append(":\n");
-        colocarComparacionDeVarBool(tree, id);
+        colocarComparacionDeVarBool(expresion, expresion.getLeft().getToken().getValor());
         codigoIntermedioText.append(".FINWHILE").append(esteWhile).append("\n");
-        while (!Objects.equals(estructuraControlActual.getSecond(), lineaFinal) && !keys.isEmpty()) {
-            codeGenerator();
-        }
+        ASTNode block = tree.getBlock();
+
+        codeGenerator(block);
+
         codigoIntermedioText.append("\tJMP\t").append(".WHILE").append(esteWhile).append("\n");
         codigoIntermedioText.append(".FINWHILE").append(esteWhile).append(":\n");
 
@@ -120,7 +86,7 @@ public class CodigoIntermedio {
         }
     }
 
-    private void readGenerator(ExpressionNode tree, String id) {
+    private void readGenerator(ExpressionNode tree) {
         var idLeer = tree.getToken().getValor();
         if(isBooleanID(idLeer) || isIntID(idLeer)){
             codigoIntermedioText.append("\tLEA\tRDI, [rel in_fmtint]\n");
@@ -139,44 +105,26 @@ public class CodigoIntermedio {
         }
     }
 
-    private int ifGenerator(ExpressionNode tree, String id) {
-        boolean elseFlag = lookForElse(estructuraControlActual.getThird());
+    private void ifGenerator(IfNode tree) {
         int esteIf = numIf++;
-        var lineaFinal = estructuraControlActual.getThird();
-        try {
-            estructuraControlActual = estructurasControl.getFirst();
-            estructurasControl.removeFirst();
-        } catch (Exception e) {
-            System.out.println("No hay más estructuras de control");
-        }
-        colocarComparacionDeVarBool(tree, id);
+        var elseFlag = tree.getElseBlock() != null;
+        ExpressionNode expresion = tree.getCondition();
+        colocarComparacionDeVarBool(expresion, expresion.getLeft().getToken().getValor());
         if(elseFlag) {
             codigoIntermedioText.append(".ELSE").append(esteIf).append("\n");
         }else{
             codigoIntermedioText.append(".FINIF").append(esteIf).append("\n");
         }
-        var key = keys.getFirst();
-        var num = expressionTrees.get(key).getToken().getLinea();
-        while(num < lineaFinal){
-            codeGenerator();
-            key = keys.getFirst();
-            num = expressionTrees.get(key).getToken().getLinea();
-        }
+        var block = tree.getThenBlock();
+
+        codeGenerator(block);
+
         if(elseFlag){
             codigoIntermedioText.append("\tJMP\t").append(".FINIF").append(esteIf).append("\n");
             codigoIntermedioText.append(".ELSE").append(esteIf).append(":\n");
-            lineaFinal = elseStack.pop().getThird();
-            while(num < lineaFinal) {
-                codeGenerator();
-                try {
-                    key = keys.getFirst();
-                    num = expressionTrees.get(key).getToken().getLinea();
-                } catch (Exception e) {
-                    num++;
-                }
-            }
+            var blockElse = tree.getThenBlock();
+            codeGenerator(blockElse);
         }
-        return esteIf;
     }
 
     private void colocarComparacionDeVarBool(ExpressionNode tree, String id) {
@@ -185,20 +133,10 @@ public class CodigoIntermedio {
             codigoIntermedioText.append("\tCMP\t").append("AL, ").append("1\n");
             codigoIntermedioText.append("\tJNE\t");
         }else{
-            evaluarExpresion(tree, id);
+            evaluarExpresion(tree.getLeft(), id);
         }
     }
 
-    private boolean lookForElse(int linea){
-        for(Pair<String, Integer, Integer> estructura : estructurasControl){
-            if((estructura.getSecond() == linea || estructura.getSecond() == linea +1) && estructura.getFirst().equals("ELSE")){
-                estructurasControl.remove(estructura);
-                elseStack.push(estructura);
-                return true;
-            }
-        }
-        return false;
-    }
     private void evaluarExpresion(ExpressionNode tree, String id) {
         Stack<Token> operadores = new Stack<>();
         Stack<Token> variables = new Stack<>();
@@ -274,21 +212,21 @@ public class CodigoIntermedio {
                 tipo == TiposDeTokens.IGUAL;
     }
     private boolean isID(String id) {
-        return identificadores.containsKey(id);
+        return tablaID.revisarID(id)!= null;
     }
 
     private boolean isBooleanID(String id) {
-        return identificadores.get(id).getFirst().equals("BOOLEAN");
+        return tablaID.revisarID(id).getTipo() == TiposDeTokens.BOOLEAN;
     }
     private boolean isIntID(String id) {
-        return identificadores.get(id).getFirst().equals("INT");
+        return tablaID.revisarID(id).getTipo() == TiposDeTokens.INT;
     }
 
     private boolean isFloatID(String id) {
-        return identificadores.get(id).getFirst().equals("FLOAT");
+        return tablaID.revisarID(id).getTipo() == TiposDeTokens.FLOAT;
     }
     private boolean isStringID(String id) {
-        return identificadores.get(id).getFirst().equals("STRING");
+        return tablaID.revisarID(id).getTipo() == TiposDeTokens.STRING;
     }
     private boolean isNumToken(Token token) {
         return token.getTipo() == TiposDeTokens.NUMERO ;
@@ -303,60 +241,52 @@ public class CodigoIntermedio {
 
 
     private void directiveGenerator() {
-        for (String key : identificadores.keySet()) {
-            var valor = getFirstExpression(key);
-            if(identificadores.get(key).get(0).equals("INT")){
-                if(valor.equals("?"))
-                    codigoIntermedioBss.append(key).append("\t DW\t ?\n");
-                else
-                    codigoIntermedioData.append(key).append("\t DW\t ").append(valor).append("\n");
+        ID id = tablaID.getActual();
+        while (id != null) {
+            switch (id.getTipo()) {
+                case INT -> handleIntDirective(id);
+                case FLOAT -> handleFloatDirective(id);
+                case STRING -> handleStringDirective(id);
+                case BOOLEAN -> handleBooleanDirective(id);
             }
-            if (identificadores.get(key).get(0).equals("FLOAT")) {
-                if(valor.equals("?"))
-                    codigoIntermedioBss.append(key).append("\t DD\t ?\n");
-                else
-                    codigoIntermedioData.append(key).append("\t DD\t ").append(valor).append("\n");
-            }
-            if (identificadores.get(key).get(0).equals("STRING")) {
-                if(valor.equals("?"))
-                    codigoIntermedioBss.append(key).append("\t DB\t 256 dup(0)\n");
-                else {
-                    codigoIntermedioData.append(key).append("\t DB\t ").append(valor).append(", ").append(258-valor.length()).append(" dup(0)\n");
-                }
-            }
-            if (identificadores.get(key).get(0).equals("BOOLEAN")) {
-                if(valor.equals("?"))
-                    codigoIntermedioBss.append(key).append("\t DB\t ?\n");
-                else {
-                    codigoIntermedioData.append(key).append("\t DB\t ").append(valor).append("\n");
-                }
-            }
+            id = tablaID.getActual();
         }
     }
 
-    private String getFirstExpression(String id){
-        List<Vector<String>> keys = new ArrayList<>(expressionTrees.keySet());
-        keys.sort(Comparator.comparingInt(key -> Integer.parseInt(key.get(1))));
-        for(Vector<String> key : keys){
-            if(!key.getFirst().equals(id)){
-               continue;
-            }
-            ExpressionNode tree = expressionTrees.get(key);
-            if(tree.getLeft() != null && tree.getRight() != null){
-                return "?";
-            }
-            if (tree.getToken().getTipo() == TiposDeTokens.TRUE){
-                expressionTrees.remove(key);
-                return "1";
-            } else if (tree.getToken().getTipo() == TiposDeTokens.FALSE) {
-                expressionTrees.remove(key);
-                return "0";
-            }
-            expressionTrees.remove(key);
-            return tree.getToken().getValor();
+    private void handleIntDirective(ID id) {
+        if (id.getValor().equals("?")) {
+            codigoIntermedioBss.append(id.getId()).append("\t DW\t ?\n");
+        } else {
+            codigoIntermedioData.append(id.getId()).append("\t DW\t ").append(id.getValor()).append("\n");
         }
-        return "?";
     }
+
+    private void handleFloatDirective(ID id) {
+        if (id.getValor().equals("?")) {
+            codigoIntermedioBss.append(id.getId()).append("\t DD\t ?\n");
+        } else {
+            codigoIntermedioData.append(id.getId()).append("\t DD\t ").append(id.getValor()).append("\n");
+        }
+    }
+
+    private void handleStringDirective(ID id) {
+        if (id.getValor().equals("?")) {
+            codigoIntermedioBss.append(id.getId()).append("\t DB\t 256 dup(0)\n");
+        } else {
+            codigoIntermedioData.append(id.getId()).append("\t DB\t ")
+                    .append(id.getValor()).append(", ")
+                    .append(258 - id.getValor().length()).append(" dup(0)\n");
+        }
+    }
+
+    private void handleBooleanDirective(ID id) {
+        if (id.getValor().equals("?")) {
+            codigoIntermedioBss.append(id.getId()).append("\t DB\t ?\n");
+        } else {
+            codigoIntermedioData.append(id.getId()).append("\t DB\t ").append(id.getValor()).append("\n");
+        }
+    }
+
 
     public String getCodigoIntermedio() {
         return "section .data \n" +
