@@ -108,13 +108,13 @@ public class Parser {
             consume(TiposDeTokens.ASIGNACION.getTipoInt());
             if (tokens.get(pos + 1).getTipo() == TiposDeTokens.PC) {
                 valor = tokens.get(pos).getValor();
+                consume(tokens.get(pos).getTipo().getTipoInt());
             } else {
                 pos -= 2;
                 asignarValor();
             }
-        } else {
-            consume(TiposDeTokens.PC.getTipoInt());
         }
+        consume(TiposDeTokens.PC.getTipoInt());
         ID idObj = new ID(id, tipo, valor, linea);
         tablaID.agregarID(idObj);
     }

@@ -20,6 +20,9 @@ public class Pantalla extends JFrame {
     private JLabel parserMessage;
     private JLabel semanticMessage;
     private JTextArea intermediateCode;
+    private JButton objectCodeButton; // Nuevo botón para código objeto
+    private JButton runObjectButton;
+    private JTextArea objectCode;
     private JButton runButton;
 
     public Pantalla() {
@@ -49,11 +52,27 @@ public class Pantalla extends JFrame {
     }
 
     private JPanel createMainPanel() {
-        JPanel mainPanel = new JPanel(new GridLayout());
-        mainPanel.add(createTextAreaPanel());
-        mainPanel.add(createDebugPanel());
-        mainPanel.add(createCodeIntermediatePanel());
+        JPanel mainPanel = new JPanel(new GridLayout(2,0));
+        JPanel firstPanel = new JPanel(new GridLayout(0,3));
+        mainPanel.add(firstPanel);
+        firstPanel.add(createTextAreaPanel());
+        firstPanel.add(createDebugPanel());
+        firstPanel.add(createCodeIntermediatePanel());
+        mainPanel.add(createCodeObjectPanel());
         return mainPanel;
+    }
+    private JPanel createCodeObjectPanel(){
+        JPanel oPanel = new JPanel(new BorderLayout());
+        objectCode = new JTextArea();
+        objectCode.setFont(new Font("Courier New", Font.PLAIN, 20));
+        oPanel.add(new JScrollPane(objectCode), BorderLayout.CENTER);
+        objectCodeButton = new JButton("Código objeto");
+        runObjectButton = new JButton("Ejecutar objeto");
+        var panel = new JPanel(new GridLayout(1, 0));
+        panel.add(createButtonPanel(objectCodeButton));
+        panel.add(createButtonPanel(runObjectButton));
+        oPanel.add(panel, BorderLayout.SOUTH);
+        return oPanel;
     }
     private JPanel createCodeIntermediatePanel(){
         JPanel ciPanel = new JPanel(new BorderLayout());
@@ -150,7 +169,9 @@ public class Pantalla extends JFrame {
         parseButton.addActionListener(controller);
         semanticButton.addActionListener(controller);
         ciButton.addActionListener(controller);
+        objectCodeButton.addActionListener(controller);
         runButton.addActionListener(controller);
+        runObjectButton.addActionListener(controller);
     }
 
     public void setLog(String log, boolean error, String type) {
@@ -170,6 +191,9 @@ public class Pantalla extends JFrame {
 
     private void setSemanticMessage(String message, boolean error) {
         semanticMessage.setText(formatMessage(message, error));
+    }
+    public void setObjectCode(String code) {
+        objectCode.setText(code);
     }
 
     private String formatMessage(String message, boolean error) {
@@ -205,5 +229,12 @@ public class Pantalla extends JFrame {
     public JButton getCIbutton(){return ciButton;}
     public JButton getRunButton() {
         return runButton;
+    }
+    public JButton getObjectCodeButton(){
+        return objectCodeButton;
+    }
+
+    public JButton getRunObjectButton(){
+        return runObjectButton;
     }
 }

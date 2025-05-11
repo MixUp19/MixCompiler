@@ -13,6 +13,7 @@ public class Controller implements ActionListener{
     Parser parser;
     Semantic semantic;
     CodigoIntermedio ci;
+    ObjectCode oc;
     public Controller(
             Pantalla pantalla
     ){
@@ -48,10 +49,11 @@ public class Controller implements ActionListener{
         }
         if (e.getSource() == pantalla.getCIbutton()){
             if (ci == null){
-                pantalla.setIntermediateCode("No se ha realizado el análisis semantic");
+                pantalla.setIntermediateCode("No se ha realizado el análisis semantico");
                 return;
             }
             pantalla.setIntermediateCode(ci.getCodigoIntermedio());
+            oc = new ObjectCode(ci.getCodigoIntermedio());
         }
         if (e.getSource() == pantalla.getFileMenu()){
             String path = pantalla.fileSelection();
@@ -61,6 +63,13 @@ public class Controller implements ActionListener{
         }
         if (e.getSource() == pantalla.getRunButton()){
             LectorMix.runIntermediateCode(pantalla.getIntermediateCode());
+        }
+        if(e.getSource() == pantalla.getObjectCodeButton()){
+            if (oc == null){
+                pantalla.setObjectCode("No se ha generado el la traducción a intermedio");
+                return;
+            }
+            pantalla.setObjectCode(oc.getObjectCode());
         }
     }
 

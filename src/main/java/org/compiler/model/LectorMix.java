@@ -30,9 +30,9 @@ public class LectorMix {
             ex.printStackTrace();
         }
         try {
-            Process compileProcess = Runtime.getRuntime().exec("nasm -f elf64 " + filePath);
+            Process compileProcess = Runtime.getRuntime().exec("nasm -f elf64 " + filePath + "-o "+filePath.replace(".asm", ".o"));
             compileProcess.waitFor();
-            Process linkProcess = Runtime.getRuntime().exec("gcc -pie -o output " + filePath.replace(".asm", ".o"));
+            Process linkProcess = Runtime.getRuntime().exec("ld " + filePath.replace(".asm", ".o") + " -o output");
             linkProcess.waitFor();
             Runtime.getRuntime().exec(new String[]{"gnome-terminal", "--", "sh", "-c", "./output; exec bash"});
         } catch (IOException | InterruptedException ex) {
